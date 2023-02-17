@@ -1,0 +1,14 @@
+[package]
+name = "nu_plugin_from_hdf5"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+nu-plugin = "0.75"
+nu-protocol = { version = "0.75", features = ["plugin"] }
+hdf5 = { path = "../hdf5-rust" }
+hdf5-sys = { path = "../hdf5-rust/hdf5-sys" }
+
+[profile.release]
+lto = true
+codegen-units = 1
