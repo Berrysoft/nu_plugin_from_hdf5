@@ -393,6 +393,7 @@ dependencies = [
 [[package]]
 name = "hdf5"
 version = "0.8.1"
+source = "git+https://github.com/Berrysoft/hdf5-rust.git?branch=fix/mingw#a7b649e9ec0319a9ad6e2ee7b2a392000e04cb78"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -409,6 +410,7 @@ dependencies = [
 [[package]]
 name = "hdf5-derive"
 version = "0.8.1"
+source = "git+https://github.com/Berrysoft/hdf5-rust.git?branch=fix/mingw#a7b649e9ec0319a9ad6e2ee7b2a392000e04cb78"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -419,6 +421,7 @@ dependencies = [
 [[package]]
 name = "hdf5-sys"
 version = "0.8.1"
+source = "git+https://github.com/Berrysoft/hdf5-rust.git?branch=fix/mingw#a7b649e9ec0319a9ad6e2ee7b2a392000e04cb78"
 dependencies = [
  "libc",
  "libloading",
@@ -432,6 +435,7 @@ dependencies = [
 [[package]]
 name = "hdf5-types"
 version = "0.8.1"
+source = "git+https://github.com/Berrysoft/hdf5-rust.git?branch=fix/mingw#a7b649e9ec0319a9ad6e2ee7b2a392000e04cb78"
 dependencies = [
  "ascii",
  "cfg-if",

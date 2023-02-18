@@ -1,8 +1,6 @@
 # nu_plugin_from_hdf5
 
-This plugin is in developing. It may not compile on other computer:)
-
-I hope it will.
+This plugin is in developing.
 
 Some notes:
 
