@@ -1,3 +1,4 @@
+#![feature(c_size_t)]
 #![feature(iterator_try_collect)]
 
 #[cfg(all(target_os = "windows", target_env = "gnu"))]
@@ -5,20 +6,16 @@
 extern "C" {}
 
 mod from_hdf5;
+mod hdf5_ext;
 
 use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
-use nu_protocol::{Category, Signature, Type, Value};
+use nu_protocol::{Signature, Value};
 
 struct FromHdf5;
 
 impl Plugin for FromHdf5 {
     fn signature(&self) -> Vec<Signature> {
-        vec![Signature::build("from hdf5")
-            .usage("Convert from HDF5 binary into table")
-            .allow_variants_without_examples(true)
-            .input_output_types(vec![(Type::Binary, Type::Any)])
-            .category(Category::Experimental)
-            .filter()]
+        vec![from_hdf5::signature()]
     }
 
     fn run(
@@ -27,20 +24,9 @@ impl Plugin for FromHdf5 {
         call: &EvaluatedCall,
         input: &Value,
     ) -> Result<Value, LabeledError> {
-        assert_eq!(name, "from hdf5");
-        match input {
-            Value::Binary { val, span } => {
-                from_hdf5::from_hdf5_bytes(val, *span).map_err(|e| LabeledError {
-                    label: "HDF5 error".into(),
-                    msg: e.to_string(),
-                    span: Some(call.head),
-                })
-            }
-            v => Err(LabeledError {
-                label: "Expected binary from pipeline".into(),
-                msg: format!("requires binary input, got {}", v.get_type()),
-                span: Some(call.head),
-            }),
+        match name {
+            "from hdf5" => from_hdf5::run(call, input),
+            _ => unreachable!(),
         }
     }
 }

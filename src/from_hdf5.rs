@@ -1,39 +1,10 @@
-use core::ffi::c_void;
+use crate::hdf5_ext::{FileImage, ReadRawBytes};
 use hdf5::{
-    h5call,
     types::{FloatSize, IntSize, TypeDescriptor, VarLenArray, VarLenAscii, VarLenUnicode},
-    Dataset, Datatype, File, Group, Result,
+    Dataset, Group, Result,
 };
-use hdf5_sys::{h5d::H5Dread, h5p::H5P_DEFAULT, h5s::H5S_ALL};
-use nu_protocol::{Span, Value};
-
-const H5LT_FILE_IMAGE_DONT_COPY: u32 = 0x2;
-const H5LT_FILE_IMAGE_DONT_RELEASE: u32 = 0x4;
-
-#[link(name = "hdf5_hl")]
-extern "C" {
-    fn H5LTopen_file_image(buf_ptr: *mut c_void, buf_size: usize, flags: u32) -> i64;
-}
-
-fn read_raw_vec(dataset: &Dataset, dtype: &TypeDescriptor) -> Result<Vec<u8>> {
-    let len = dataset.size();
-    let item_size = dtype.size();
-    let mut buffer = Vec::with_capacity(len * item_size);
-    // Convert again to fit the current native endian.
-    let native_dtype = Datatype::from_descriptor(dtype)?;
-    h5call!(H5Dread(
-        dataset.id(),
-        native_dtype.id(),
-        H5S_ALL,
-        H5S_ALL,
-        H5P_DEFAULT,
-        buffer.spare_capacity_mut().as_mut_ptr() as *mut _
-    ))?;
-    unsafe {
-        buffer.set_len(len * item_size);
-    }
-    Ok(buffer)
-}
+use nu_plugin::{EvaluatedCall, LabeledError};
+use nu_protocol::{Category, Signature, Span, Type, Value};
 
 macro_rules! native {
     ($native_ty: ty, $slice: expr) => {
@@ -133,7 +104,7 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
 
 fn to_list(dataset: &Dataset, span: Span) -> Result<Value> {
     let dtype = dataset.dtype()?.to_descriptor()?;
-    let data = read_raw_vec(dataset, &dtype)?;
+    let data = dataset.read_raw_bytes(&dtype)?;
     let vals: Vec<Value> = data
         .chunks(dtype.size())
         .map(|slice| to_value(slice, &dtype, span))
@@ -164,12 +135,31 @@ fn strip_name(name: String) -> String {
     }
 }
 
-pub fn from_hdf5_bytes(bytes: &[u8], span: Span) -> Result<Value> {
-    let hid = h5call!(H5LTopen_file_image(
-        bytes.as_ptr() as *const c_void as _,
-        bytes.len(),
-        H5LT_FILE_IMAGE_DONT_COPY | H5LT_FILE_IMAGE_DONT_RELEASE
-    ))?;
-    let file: File = unsafe { std::mem::transmute(hid) };
+fn from_hdf5_bytes(bytes: &[u8], span: Span) -> Result<Value> {
+    let file = FileImage::new(bytes)?;
     to_record(&file, span)
+}
+
+pub fn signature() -> Signature {
+    Signature::build("from hdf5")
+        .usage("Convert from HDF5 binary into table")
+        .allow_variants_without_examples(true)
+        .input_output_types(vec![(Type::Binary, Type::Any)])
+        .category(Category::Experimental)
+        .filter()
+}
+
+pub fn run(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+    match input {
+        Value::Binary { val, span } => from_hdf5_bytes(val, *span).map_err(|e| LabeledError {
+            label: "HDF5 error".into(),
+            msg: e.to_string(),
+            span: Some(call.head),
+        }),
+        v => Err(LabeledError {
+            label: "Expected binary from pipeline".into(),
+            msg: format!("requires binary input, got {}", v.get_type()),
+            span: Some(call.head),
+        }),
+    }
 }
