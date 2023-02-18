@@ -6,7 +6,7 @@ extern "C" {}
 
 mod from_hdf5;
 
-use nu_plugin::{serve_plugin, EvaluatedCall, JsonSerializer, LabeledError, Plugin};
+use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
 use nu_protocol::{Category, Signature, Type, Value};
 
 struct FromHdf5;
@@ -46,5 +46,5 @@ impl Plugin for FromHdf5 {
 }
 
 fn main() {
-    serve_plugin(&mut FromHdf5, JsonSerializer);
+    serve_plugin(&mut FromHdf5, MsgPackSerializer);
 }
