@@ -2,7 +2,7 @@ use core::ffi::c_void;
 use hdf5::{
     h5call,
     types::{FloatSize, IntSize, TypeDescriptor, VarLenArray, VarLenAscii, VarLenUnicode},
-    Dataset, File, Group, Result,
+    Dataset, Datatype, File, Group, Result,
 };
 use hdf5_sys::{h5d::H5Dread, h5p::H5P_DEFAULT, h5s::H5S_ALL};
 use nu_protocol::{Span, Value};
@@ -15,12 +15,15 @@ extern "C" {
     fn H5LTopen_file_image(buf_ptr: *mut c_void, buf_size: usize, flags: u32) -> i64;
 }
 
-fn read_raw_vec(dataset: &Dataset, item_size: usize) -> Result<Vec<u8>> {
+fn read_raw_vec(dataset: &Dataset, dtype: &TypeDescriptor) -> Result<Vec<u8>> {
     let len = dataset.size();
+    let item_size = dtype.size();
     let mut buffer = Vec::with_capacity(len * item_size);
+    // Convert again to fit the current native endian.
+    let native_dtype = Datatype::from_descriptor(dtype)?;
     h5call!(H5Dread(
         dataset.id(),
-        dataset.dtype()?.id(),
+        native_dtype.id(),
         H5S_ALL,
         H5S_ALL,
         H5P_DEFAULT,
@@ -39,12 +42,13 @@ macro_rules! native {
 }
 
 macro_rules! native_value {
-    ($native_ty: ty, $variant: ident, $slice: expr, $span: expr) => {
+    ($native_ty: ty, $variant: ident, $slice: expr, $span: expr) => {{
+        assert_eq!($slice.len(), std::mem::size_of::<$native_ty>());
         Value::$variant {
             val: unsafe { std::ptr::read_unaligned(native!($native_ty, $slice)) } as _,
             span: $span,
         }
-    };
+    }};
 }
 
 fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
@@ -69,6 +73,7 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
             }
         }
         TypeDescriptor::Compound(comp) => {
+            assert_eq!(slice.len(), comp.size);
             let mut cols = vec![];
             let mut vals = vec![];
             for field in comp.fields.iter() {
@@ -128,10 +133,9 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
 
 fn to_list(dataset: &Dataset, span: Span) -> Result<Value> {
     let dtype = dataset.dtype()?.to_descriptor()?;
-    let item_size = dtype.size();
-    let data = read_raw_vec(dataset, item_size)?;
+    let data = read_raw_vec(dataset, &dtype)?;
     let vals: Vec<Value> = data
-        .chunks(item_size)
+        .chunks(dtype.size())
         .map(|slice| to_value(slice, &dtype, span))
         .try_collect()?;
     assert_eq!(vals.len(), dataset.size());
