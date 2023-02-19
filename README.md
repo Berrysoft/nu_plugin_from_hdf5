@@ -1,6 +1,6 @@
 # nu_plugin_from_hdf5
 
-This plugin is in developing.
+This plugin is OK for light-weight usage.
 
 Some notes:
 
