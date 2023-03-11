@@ -4,7 +4,7 @@ use hdf5::{
     Dataset, Group, Result,
 };
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, Signature, Span, Type, Value};
+use nu_protocol::{Category, PluginSignature, Span, Type, Value};
 
 macro_rules! native {
     ($native_ty: ty, $slice: expr) => {
@@ -140,8 +140,8 @@ fn from_hdf5_bytes(bytes: &[u8], span: Span) -> Result<Value> {
     to_record(&file, span)
 }
 
-pub fn signature() -> Signature {
-    Signature::build("from hdf5")
+pub fn signature() -> PluginSignature {
+    PluginSignature::build("from hdf5")
         .usage("Convert from HDF5 binary into table")
         .allow_variants_without_examples(true)
         .input_output_types(vec![(Type::Binary, Type::Any)])

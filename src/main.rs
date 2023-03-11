@@ -9,12 +9,12 @@ mod from_hdf5;
 mod hdf5_ext;
 
 use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
-use nu_protocol::{Signature, Value};
+use nu_protocol::{PluginSignature, Value};
 
 struct FromHdf5;
 
 impl Plugin for FromHdf5 {
-    fn signature(&self) -> Vec<Signature> {
+    fn signature(&self) -> Vec<PluginSignature> {
         vec![from_hdf5::signature()]
     }
 
