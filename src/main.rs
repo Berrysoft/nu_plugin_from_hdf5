@@ -1,10 +1,6 @@
 #![feature(c_size_t)]
 #![feature(iterator_try_collect)]
 
-#[cfg(all(target_os = "windows", target_env = "gnu", not(debug_assertions)))]
-#[link(name = "gcc_s", kind = "dylib")]
-extern "C" {}
-
 mod from_hdf5;
 mod hdf5_ext;
 
