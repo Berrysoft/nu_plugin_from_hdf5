@@ -4,15 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nu-plugin = "0.80"
-nu-protocol = { version = "0.80", features = ["plugin"] }
-hdf5 = "0.8"
-hdf5-sys = "0.8"
+nu-plugin = "0.81"
+nu-protocol = { version = "0.81", features = ["plugin"] }
+hdf5 = { git = "https://github.com/aldanor/hdf5-rust.git" }
+hdf5-sys = { git = "https://github.com/aldanor/hdf5-rust.git" }
 
 [profile.release]
 lto = true
 codegen-units = 1
-
-[patch.crates-io]
-hdf5 = { git = "https://github.com/Berrysoft/hdf5-rust.git", branch = "fix/mingw" }
-hdf5-sys = { git = "https://github.com/Berrysoft/hdf5-rust.git", branch = "fix/mingw" }
