@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nu-plugin = "0.81"
-nu-protocol = { version = "0.81", features = ["plugin"] }
+nu-plugin = "0.84"
+nu-protocol = { version = "0.84", features = ["plugin"] }
 hdf5 = { git = "https://github.com/aldanor/hdf5-rust.git" }
 hdf5-sys = { git = "https://github.com/aldanor/hdf5-rust.git" }
 
