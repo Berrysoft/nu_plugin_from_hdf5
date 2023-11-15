@@ -4,7 +4,7 @@ use hdf5::{
     Dataset, Group, Result,
 };
 use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, PluginSignature, Span, Type, Value};
+use nu_protocol::{Category, PluginSignature, Record, Span, Type, Value};
 
 macro_rules! native {
     ($native_ty: ty, $slice: expr) => {
@@ -17,7 +17,7 @@ macro_rules! native_value {
         assert_eq!($slice.len(), std::mem::size_of::<$native_ty>());
         Value::$variant {
             val: unsafe { std::ptr::read_unaligned(native!($native_ty, $slice)) } as _,
-            span: $span,
+            internal_span: $span,
         }
     }};
 }
@@ -55,7 +55,10 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
                     span,
                 )?)
             }
-            Value::Record { cols, vals, span }
+            Value::Record {
+                val: Record { cols, vals },
+                internal_span: span,
+            }
         }
         TypeDescriptor::FixedArray(ty, len) => {
             assert_eq!(slice.len(), ty.size() * len);
@@ -64,14 +67,14 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
                     .chunks(ty.size())
                     .map(|slice| to_value(slice, ty, span))
                     .try_collect()?,
-                span,
+                internal_span: span,
             }
         }
         TypeDescriptor::FixedAscii(len) | TypeDescriptor::FixedUnicode(len) => {
             assert_eq!(slice.len(), *len);
             Value::String {
                 val: String::from_utf8_lossy(slice).into_owned(),
-                span,
+                internal_span: span,
             }
         }
         TypeDescriptor::VarLenArray(ty) => {
@@ -81,21 +84,21 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
                     .chunks(ty.size())
                     .map(|slice| to_value(slice, ty, span))
                     .try_collect()?,
-                span,
+                internal_span: span,
             }
         }
         TypeDescriptor::VarLenAscii => {
             let str = unsafe { native!(VarLenAscii, slice).as_ref() }.unwrap();
             Value::String {
                 val: str.as_str().to_string(),
-                span,
+                internal_span: span,
             }
         }
         TypeDescriptor::VarLenUnicode => {
             let str = unsafe { native!(VarLenUnicode, slice).as_ref() }.unwrap();
             Value::String {
                 val: str.as_str().to_string(),
-                span,
+                internal_span: span,
             }
         }
     };
@@ -110,7 +113,10 @@ fn to_list(dataset: &Dataset, span: Span) -> Result<Value> {
         .map(|slice| to_value(slice, &dtype, span))
         .try_collect()?;
     assert_eq!(vals.len(), dataset.size());
-    Ok(Value::List { vals, span })
+    Ok(Value::List {
+        vals,
+        internal_span: span,
+    })
 }
 
 fn to_record(group: &Group, span: Span) -> Result<Value> {
@@ -124,7 +130,10 @@ fn to_record(group: &Group, span: Span) -> Result<Value> {
         cols.push(strip_name(g.name()));
         vals.push(to_record(&g, span)?);
     }
-    Ok(Value::Record { cols, vals, span })
+    Ok(Value::Record {
+        val: Record { cols, vals },
+        internal_span: span,
+    })
 }
 
 fn strip_name(name: String) -> String {
@@ -151,7 +160,10 @@ pub fn signature() -> PluginSignature {
 
 pub fn run(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
     match input {
-        Value::Binary { val, span } => from_hdf5_bytes(val, *span).map_err(|e| LabeledError {
+        Value::Binary {
+            val,
+            internal_span: span,
+        } => from_hdf5_bytes(val, *span).map_err(|e| LabeledError {
             label: "HDF5 error".into(),
             msg: e.to_string(),
             span: Some(call.head),
