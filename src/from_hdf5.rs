@@ -56,7 +56,7 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
                 )?)
             }
             Value::Record {
-                val: Record { cols, vals },
+                val: Record::from_raw_cols_vals(cols, vals),
                 internal_span: span,
             }
         }
@@ -131,7 +131,7 @@ fn to_record(group: &Group, span: Span) -> Result<Value> {
         vals.push(to_record(&g, span)?);
     }
     Ok(Value::Record {
-        val: Record { cols, vals },
+        val: Record::from_raw_cols_vals(cols, vals),
         internal_span: span,
     })
 }
