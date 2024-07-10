@@ -3,8 +3,7 @@ use hdf5::{
     types::{FloatSize, IntSize, TypeDescriptor, VarLenArray, VarLenAscii, VarLenUnicode},
     Dataset, Group, Result,
 };
-use nu_plugin::{EvaluatedCall, LabeledError};
-use nu_protocol::{Category, PluginSignature, Record, Span, Type, Value};
+use nu_protocol::{Category, LabeledError, PipelineData, Record, Signature, Span, Type, Value};
 
 macro_rules! native {
     ($native_ty: ty, $slice: expr) => {
@@ -56,7 +55,9 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
                 )?)
             }
             Value::Record {
-                val: Record::from_raw_cols_vals(cols, vals),
+                val: Record::from_raw_cols_vals(cols, vals, span, span)
+                    .unwrap()
+                    .into(),
                 internal_span: span,
             }
         }
@@ -131,7 +132,9 @@ fn to_record(group: &Group, span: Span) -> Result<Value> {
         vals.push(to_record(&g, span)?);
     }
     Ok(Value::Record {
-        val: Record::from_raw_cols_vals(cols, vals),
+        val: Record::from_raw_cols_vals(cols, vals, span, span)
+            .unwrap()
+            .into(),
         internal_span: span,
     })
 }
@@ -149,8 +152,8 @@ fn from_hdf5_bytes(bytes: &[u8], span: Span) -> Result<Value> {
     to_record(&file, span)
 }
 
-pub fn signature() -> PluginSignature {
-    PluginSignature::build("from hdf5")
+pub fn signature() -> Signature {
+    Signature::build("from hdf5")
         .usage("Convert from HDF5 binary into table")
         .allow_variants_without_examples(true)
         .input_output_types(vec![(Type::Binary, Type::Any)])
@@ -158,20 +161,37 @@ pub fn signature() -> PluginSignature {
         .filter()
 }
 
-pub fn run(call: &EvaluatedCall, input: &Value) -> Result<Value, LabeledError> {
+pub fn run(input: PipelineData) -> Result<PipelineData, LabeledError> {
     match input {
-        Value::Binary {
-            val,
-            internal_span: span,
-        } => from_hdf5_bytes(val, *span).map_err(|e| LabeledError {
-            label: "HDF5 error".into(),
-            msg: e.to_string(),
-            span: Some(call.head),
-        }),
-        v => Err(LabeledError {
-            label: "Expected binary from pipeline".into(),
-            msg: format!("requires binary input, got {}", v.get_type()),
-            span: Some(call.head),
-        }),
+        PipelineData::Empty => Ok(PipelineData::Empty),
+        PipelineData::Value(v, meta) => match v {
+            Value::Binary {
+                val,
+                internal_span: span,
+            } => {
+                let value =
+                    from_hdf5_bytes(&val, span).map_err(|e| LabeledError::new(e.to_string()))?;
+                Ok(PipelineData::Value(value, meta))
+            }
+            v => Err(LabeledError::new(format!(
+                "requires binary input, got {}",
+                v.get_type()
+            ))),
+        },
+        PipelineData::ListStream(_, _) => Err(LabeledError::new("unsupported list stream")),
+        PipelineData::ByteStream(stream, meta) => {
+            let value = stream.into_value()?;
+            match value {
+                Value::Binary {
+                    val,
+                    internal_span: span,
+                } => {
+                    let value = from_hdf5_bytes(&val, span)
+                        .map_err(|e| LabeledError::new(e.to_string()))?;
+                    Ok(PipelineData::Value(value, meta))
+                }
+                _ => unreachable!(),
+            }
+        }
     }
 }

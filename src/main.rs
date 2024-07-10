@@ -4,29 +4,49 @@
 mod from_hdf5;
 mod hdf5_ext;
 
-use nu_plugin::{serve_plugin, EvaluatedCall, LabeledError, MsgPackSerializer, Plugin};
-use nu_protocol::{PluginSignature, Value};
+use nu_plugin::{
+    serve_plugin, EngineInterface, EvaluatedCall, MsgPackSerializer, Plugin, PluginCommand,
+};
+use nu_protocol::{LabeledError, PipelineData, Signature};
 
 struct FromHdf5;
 
 impl Plugin for FromHdf5 {
-    fn signature(&self) -> Vec<PluginSignature> {
-        vec![from_hdf5::signature()]
+    fn version(&self) -> String {
+        env!("CARGO_PKG_VERSION").to_string()
+    }
+
+    fn commands(&self) -> Vec<Box<dyn PluginCommand<Plugin = Self>>> {
+        vec![Box::new(FromHdf5)]
+    }
+}
+
+impl PluginCommand for FromHdf5 {
+    type Plugin = FromHdf5;
+
+    fn name(&self) -> &str {
+        "from hdf5"
+    }
+
+    fn usage(&self) -> &str {
+        "Read HDF5 file and output a table"
+    }
+
+    fn signature(&self) -> Signature {
+        from_hdf5::signature()
     }
 
     fn run(
-        &mut self,
-        name: &str,
-        call: &EvaluatedCall,
-        input: &Value,
-    ) -> Result<Value, LabeledError> {
-        match name {
-            "from hdf5" => from_hdf5::run(call, input),
-            _ => unreachable!(),
-        }
+        &self,
+        _plugin: &FromHdf5,
+        _engine: &EngineInterface,
+        _call: &EvaluatedCall,
+        input: PipelineData,
+    ) -> Result<PipelineData, LabeledError> {
+        from_hdf5::run(input)
     }
 }
 
 fn main() {
-    serve_plugin(&mut FromHdf5, MsgPackSerializer);
+    serve_plugin(&FromHdf5, MsgPackSerializer);
 }
