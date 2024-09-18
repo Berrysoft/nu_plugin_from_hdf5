@@ -28,7 +28,7 @@ impl PluginCommand for FromHdf5 {
         "from hdf5"
     }
 
-    fn usage(&self) -> &str {
+    fn description(&self) -> &str {
         "Read HDF5 file and output a table"
     }
 

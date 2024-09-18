@@ -154,13 +154,14 @@ fn from_hdf5_bytes(bytes: &[u8], span: Span) -> Result<Value> {
 
 pub fn signature() -> Signature {
     Signature::build("from hdf5")
-        .usage("Convert from HDF5 binary into table")
+        .description("Convert from HDF5 binary into table")
         .allow_variants_without_examples(true)
         .input_output_types(vec![(Type::Binary, Type::Any)])
         .category(Category::Experimental)
         .filter()
 }
 
+#[allow(clippy::result_large_err)]
 pub fn run(input: PipelineData) -> Result<PipelineData, LabeledError> {
     match input {
         PipelineData::Empty => Ok(PipelineData::Empty),
