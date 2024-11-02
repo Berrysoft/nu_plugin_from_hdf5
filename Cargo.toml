@@ -4,8 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nu-plugin = "0.98"
-nu-protocol = { version = "0.98", features = ["plugin"] }
+nu-plugin = "0.99"
+nu-protocol = { version = "0.99", features = ["plugin"] }
 hdf5 = { package = "hdf5-metno", version = "0.9" }
 hdf5-sys = { package = "hdf5-metno-sys", version = "0.9" }
 
