@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-nu-plugin = "0.100"
-nu-protocol = { version = "0.100", features = ["plugin"] }
-hdf5 = { package = "hdf5-metno", version = "0.9" }
-hdf5-sys = { package = "hdf5-metno-sys", version = "0.9" }
+nu-plugin = "0.111"
+nu-protocol = { version = "0.111", features = ["plugin"] }
+hdf5 = { package = "hdf5-metno", version = "0.12" }
+hdf5-sys = { package = "hdf5-metno-sys", version = "0.11" }
 
 [profile.release]
 lto = true

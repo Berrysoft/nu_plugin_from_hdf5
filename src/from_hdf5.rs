@@ -14,26 +14,26 @@ macro_rules! native {
 macro_rules! native_value {
     ($native_ty: ty, $variant: ident, $slice: expr, $span: expr) => {{
         assert_eq!($slice.len(), std::mem::size_of::<$native_ty>());
-        Value::$variant {
-            val: unsafe { std::ptr::read_unaligned(native!($native_ty, $slice)) } as _,
-            internal_span: $span,
-        }
+        Value::$variant(
+            unsafe { std::ptr::read_unaligned(native!($native_ty, $slice)) } as _,
+            $span,
+        )
     }};
 }
 
 fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
     let val = match dtype {
-        TypeDescriptor::Integer(IntSize::U1) => native_value!(i8, Int, slice, span),
-        TypeDescriptor::Integer(IntSize::U2) => native_value!(i16, Int, slice, span),
-        TypeDescriptor::Integer(IntSize::U4) => native_value!(i32, Int, slice, span),
-        TypeDescriptor::Integer(IntSize::U8) => native_value!(i64, Int, slice, span),
-        TypeDescriptor::Unsigned(IntSize::U1) => native_value!(u8, Int, slice, span),
-        TypeDescriptor::Unsigned(IntSize::U2) => native_value!(u16, Int, slice, span),
-        TypeDescriptor::Unsigned(IntSize::U4) => native_value!(u32, Int, slice, span),
-        TypeDescriptor::Unsigned(IntSize::U8) => native_value!(u64, Int, slice, span),
-        TypeDescriptor::Float(FloatSize::U4) => native_value!(f32, Float, slice, span),
-        TypeDescriptor::Float(FloatSize::U8) => native_value!(f64, Float, slice, span),
-        TypeDescriptor::Boolean => native_value!(bool, Bool, slice, span),
+        TypeDescriptor::Integer(IntSize::U1) => native_value!(i8, int, slice, span),
+        TypeDescriptor::Integer(IntSize::U2) => native_value!(i16, int, slice, span),
+        TypeDescriptor::Integer(IntSize::U4) => native_value!(i32, int, slice, span),
+        TypeDescriptor::Integer(IntSize::U8) => native_value!(i64, int, slice, span),
+        TypeDescriptor::Unsigned(IntSize::U1) => native_value!(u8, int, slice, span),
+        TypeDescriptor::Unsigned(IntSize::U2) => native_value!(u16, int, slice, span),
+        TypeDescriptor::Unsigned(IntSize::U4) => native_value!(u32, int, slice, span),
+        TypeDescriptor::Unsigned(IntSize::U8) => native_value!(u64, int, slice, span),
+        TypeDescriptor::Float(FloatSize::U4) => native_value!(f32, float, slice, span),
+        TypeDescriptor::Float(FloatSize::U8) => native_value!(f64, float, slice, span),
+        TypeDescriptor::Boolean => native_value!(bool, bool, slice, span),
         TypeDescriptor::Enum(ty) => {
             let int_size = ty.size;
             if ty.signed {
@@ -54,53 +54,44 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
                     span,
                 )?)
             }
-            Value::Record {
-                val: Record::from_raw_cols_vals(cols, vals, span, span)
-                    .unwrap()
-                    .into(),
-                internal_span: span,
-            }
+            Value::record(
+                Record::from_raw_cols_vals(cols, vals, span, span).unwrap(),
+                span,
+            )
         }
         TypeDescriptor::FixedArray(ty, len) => {
             assert_eq!(slice.len(), ty.size() * len);
-            Value::List {
-                vals: slice
+            Value::list(
+                slice
                     .chunks(ty.size())
                     .map(|slice| to_value(slice, ty, span))
                     .try_collect()?,
-                internal_span: span,
-            }
+                span,
+            )
         }
         TypeDescriptor::FixedAscii(len) | TypeDescriptor::FixedUnicode(len) => {
             assert_eq!(slice.len(), *len);
-            Value::String {
-                val: String::from_utf8_lossy(slice).into_owned(),
-                internal_span: span,
-            }
+            Value::string(String::from_utf8_lossy(slice).into_owned(), span)
         }
         TypeDescriptor::VarLenArray(ty) => {
             let hvl = unsafe { native!(VarLenArray<u8>, slice).as_ref() }.unwrap();
-            Value::List {
-                vals: hvl
-                    .chunks(ty.size())
+            Value::list(
+                hvl.chunks(ty.size())
                     .map(|slice| to_value(slice, ty, span))
                     .try_collect()?,
-                internal_span: span,
-            }
+                span,
+            )
         }
         TypeDescriptor::VarLenAscii => {
             let str = unsafe { native!(VarLenAscii, slice).as_ref() }.unwrap();
-            Value::String {
-                val: str.as_str().to_string(),
-                internal_span: span,
-            }
+            Value::string(str.as_str().to_string(), span)
         }
         TypeDescriptor::VarLenUnicode => {
             let str = unsafe { native!(VarLenUnicode, slice).as_ref() }.unwrap();
-            Value::String {
-                val: str.as_str().to_string(),
-                internal_span: span,
-            }
+            Value::string(str.as_str().to_string(), span)
+        }
+        TypeDescriptor::Reference(_) => {
+            todo!()
         }
     };
     Ok(val)
@@ -114,10 +105,7 @@ fn to_list(dataset: &Dataset, span: Span) -> Result<Value> {
         .map(|slice| to_value(slice, &dtype, span))
         .try_collect()?;
     assert_eq!(vals.len(), dataset.size());
-    Ok(Value::List {
-        vals,
-        internal_span: span,
-    })
+    Ok(Value::list(vals, span))
 }
 
 fn to_record(group: &Group, span: Span) -> Result<Value> {
@@ -131,12 +119,10 @@ fn to_record(group: &Group, span: Span) -> Result<Value> {
         cols.push(strip_name(g.name()));
         vals.push(to_record(&g, span)?);
     }
-    Ok(Value::Record {
-        val: Record::from_raw_cols_vals(cols, vals, span, span)
-            .unwrap()
-            .into(),
-        internal_span: span,
-    })
+    Ok(Value::record(
+        Record::from_raw_cols_vals(cols, vals, span, span).unwrap(),
+        span,
+    ))
 }
 
 fn strip_name(name: String) -> String {
@@ -169,6 +155,7 @@ pub fn run(input: PipelineData) -> Result<PipelineData, LabeledError> {
             Value::Binary {
                 val,
                 internal_span: span,
+                ..
             } => {
                 let value =
                     from_hdf5_bytes(&val, span).map_err(|e| LabeledError::new(e.to_string()))?;
@@ -186,6 +173,7 @@ pub fn run(input: PipelineData) -> Result<PipelineData, LabeledError> {
                 Value::Binary {
                     val,
                     internal_span: span,
+                    ..
                 } => {
                     let value = from_hdf5_bytes(&val, span)
                         .map_err(|e| LabeledError::new(e.to_string()))?;
