@@ -90,9 +90,10 @@ fn to_value(slice: &[u8], dtype: &TypeDescriptor, span: Span) -> Result<Value> {
             let str = unsafe { native!(VarLenUnicode, slice).as_ref() }.unwrap();
             Value::string(str.as_str().to_string(), span)
         }
-        TypeDescriptor::Reference(_) => {
-            todo!()
-        }
+        TypeDescriptor::Reference(reference) => Value::string(
+            format!("Reference({:?}, size = {})", reference, reference.size()),
+            span,
+        ),
     };
     Ok(val)
 }
